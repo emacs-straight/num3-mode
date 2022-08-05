@@ -1,11 +1,11 @@
 ;;; num3-mode.el --- highlight groups of digits in long numbers  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2012-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2020 Free Software Foundation, Inc.
 
 ;; Author: Felix Lee <felix8a@gmail.com>, Michal Nazarewicz <mina86@mina86.com>
 ;; Maintainer: Michal Nazarewicz <mina86@mina86.com>
 ;; Keywords: faces, minor-mode
-;; Version: 1.3
+;; Version: 1.4
 
 ;; GNU Emacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -92,7 +92,7 @@ Groups are highlighted alternately using `num3-face-odd' and
 default) is the one used for the group closest to the decimal
 point, i.e. groups are counted starting with one outwards from
 the (place where) decimal point (would be) is."
-  nil " num3" nil
+  :lighter " num3"
   (if num3-mode
       (unless (assoc 'num3--matcher font-lock-keywords)
         (font-lock-add-keywords nil '(num3--matcher) 'append))
@@ -108,12 +108,17 @@ the (place where) decimal point (would be) is."
   ;; group them both in four-digit groups.  There’s no explicit support for
   ;; octal numbers because we just use logic for a decimal number, i.e. the same
   ;; grouping.
-  (concat "[0#][xX]\\([[:xdigit:]]+\\)"       ; 1 = hexadecimal
-       "\\|[0#][bB]\\(?1:[01]+\\)"            ; 1 = binary
-       "\\|\\(?1:\\b\\(?:[0-9]+[a-fA-F]\\|"   ; 1 = hexadecimal w/o prefix
-                 "[a-fA-F]+[0-9]\\)[[:xdigit:]]*\\b\\)"
-       "\\|\\([0-9]+\\)"                      ; 2 = decimal
-       "\\|\\.\\([0-9]+\\)"))                 ; 3 = fraction
+  (eval-when-compile
+    (concat
+         "#[xX]\\(?1:[[:xdigit:]]+\\)"       ; 1 = hexadecimal
+      "\\|0[xX]\\(?1:[[:xdigit:]]+\\)?"      ; 1 - hexadecimal
+              "\\(?:\\.\\(?4:[[:xdigit:]]+\\)" ; 4 - hex fraction
+                "[pP][-+]?\\(?2:[0-9]+\\)\\)?" ; 2 - decimal (power)
+      "\\|[0#][bB]\\(?1:[01]+\\)"            ; 1 = binary
+      "\\|\\(?1:\\b\\(?:[0-9]+[a-fA-F]\\|"   ; 1 = hexadecimal w/o prefix
+                "[a-fA-F]+[0-9]\\)[[:xdigit:]]*\\b\\)"
+      "\\|\\(?2:[0-9]+\\)"                   ; 2 = decimal
+      "\\|\\.\\(?3:[0-9]+\\)")))             ; 3 = fraction
 
 (defun num3--matcher (lim)
   "Function used as a font-lock-keywoard handler used in `num3-mode'.
@@ -121,8 +126,9 @@ Performs fontification of numbers from point to LIM."
   (save-excursion
     (while (re-search-forward num3--number-re lim t)
       (num3--int  (match-beginning 1) (match-end 1) 4)
+      (num3--frac (match-beginning 4) (match-end 4) 4)
       (num3--int  (match-beginning 2) (match-end 2) num3-group-size)
-      (num3--frac (match-beginning 3) (match-end 3) num3-group-size)))
+      (num3--frac (match-beginning 3) (match-end 3) num3-group-size) ))
   nil)
 
 (defun num3--int (lo hi n)
